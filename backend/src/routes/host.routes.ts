@@ -5,12 +5,14 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { HostService } from '../services/host.service';
+import { HistoryService } from '../services/history.service';
 import { AppError } from '../models/error.types';
 import { sanitizeBody } from '../middleware/sanitization.middleware';
 import { createRateLimiter } from '../middleware/rateLimiter.middleware';
 
 const router = Router();
 const hostService = new HostService();
+const historyService = new HistoryService();
 
 // Rate limiter for host endpoints
 const hostRateLimiter = createRateLimiter({
@@ -53,6 +55,18 @@ router.post(
       // Perform ping
       const result = await hostService.ping(host, locations);
 
+      // Save to history
+      try {
+        historyService.saveAnalysis({
+          type: 'ping',
+          domain: host,
+          result,
+          status: 'success',
+        });
+      } catch {
+        // Don't fail the request if history save fails
+      }
+
       res.json({
         success: true,
         data: result,
@@ -91,13 +105,27 @@ router.post(
       // Add slow response indicator
       const isSlow = hostService.isSlowResponse(result.responseTime);
 
+      const responseData = {
+        ...result,
+        isSlow,
+        slowResponseThreshold: hostService.getSlowResponseThreshold(),
+      };
+
+      // Save to history
+      try {
+        historyService.saveAnalysis({
+          type: 'http_check',
+          domain: url,
+          result: responseData,
+          status: 'success',
+        });
+      } catch {
+        // Don't fail the request if history save fails
+      }
+
       res.json({
         success: true,
-        data: {
-          ...result,
-          isSlow,
-          slowResponseThreshold: hostService.getSlowResponseThreshold(),
-        },
+        data: responseData,
       });
     } catch (error) {
       next(error);
@@ -154,6 +182,18 @@ router.post(
       // Perform port scan
       const result = await hostService.scanPorts(host, ports);
 
+      // Save to history
+      try {
+        historyService.saveAnalysis({
+          type: 'port_scan',
+          domain: host,
+          result,
+          status: 'success',
+        });
+      } catch {
+        // Don't fail the request if history save fails
+      }
+
       res.json({
         success: true,
         data: result,
@@ -193,13 +233,27 @@ router.post(
       const isExpiringSoon = hostService.isExpiringWithin30Days(result.daysUntilExpiry);
       const isExpired = hostService.isCertificateExpired(result.daysUntilExpiry);
 
+      const responseData = {
+        ...result,
+        isExpiringSoon,
+        isExpired,
+      };
+
+      // Save to history
+      try {
+        historyService.saveAnalysis({
+          type: 'ssl_check',
+          domain,
+          result: responseData,
+          status: 'success',
+        });
+      } catch {
+        // Don't fail the request if history save fails
+      }
+
       res.json({
         success: true,
-        data: {
-          ...result,
-          isExpiringSoon,
-          isExpired,
-        },
+        data: responseData,
       });
     } catch (error) {
       next(error);

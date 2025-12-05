@@ -5,12 +5,14 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { RDAPService } from '../services/rdap.service';
+import { HistoryService } from '../services/history.service';
 import { AppError } from '../models/error.types';
 import { sanitizeBody } from '../middleware/sanitization.middleware';
 import { createRateLimiter } from '../middleware/rateLimiter.middleware';
 
 const router = Router();
 const rdapService = new RDAPService('./dns.json');
+const historyService = new HistoryService();
 
 // Initialize RDAP service on startup
 rdapService.initialize().catch(error => {
@@ -47,6 +49,18 @@ router.post(
 
       // Perform RDAP lookup
       const result = await rdapService.lookupDomain(domain);
+
+      // Save to history
+      try {
+        historyService.saveAnalysis({
+          type: 'rdap',
+          domain,
+          result,
+          status: 'success',
+        });
+      } catch {
+        // Don't fail the request if history save fails
+      }
 
       res.json({
         success: true,

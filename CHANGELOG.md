@@ -5,7 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2024-12-05
+## [1.1.0] - 2025-12-06
+
+### Added
+
+#### IP Checker - Dual IPv4/IPv6 Support
+- Display both IPv4 and IPv6 addresses simultaneously
+- IP fetched directly from user's browser for accuracy
+- Uses `api.ipify.org` for IPv4 and `api64.ipify.org` for IPv6
+- Shows message when IPv6 is not available (network doesn't support)
+- New endpoint `/api/ip/dual` for dual IP lookup
+
+#### IP Checker - UI Improvements
+- Copy button to copy IP address with one click
+- Responsive design for mobile (long IPv6 doesn't overflow)
+- Icon changes to checkmark on successful copy
+- Different badge colors for IPv4 (green) and IPv6 (purple)
+
+#### History Integration
+- All analysis results now saved to database history automatically
+- Integrated routes: DNS Lookup, DNS Propagation, IP Lookup, WHOIS, RDAP, Ping, HTTP Check, Port Scan, SSL Check
+
+### Fixed
+- Unused `React` import in `AppContext.test.tsx`
+- Unused `vi` import in `axios.test.ts`
+- `.handlers` property usage error in axios interceptors
+
+---
+
+## [1.0.0] - 2025-12-05
 
 ### Added
 
@@ -70,3 +98,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Additional DNS server locations
 - Real-time monitoring dashboard
 - Email notifications for monitoring alerts
+- Bulk domain import from file

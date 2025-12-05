@@ -11,7 +11,7 @@ All-in-one platform for DNS checking, WHOIS lookup, host monitoring, and network
 - **Host Monitoring**: Ping tests and HTTP/HTTPS availability checks
 - **Port Scanning**: Scan common or custom port ranges
 - **SSL Certificate Validation**: Check certificate validity and expiration
-- **IP Address Lookup**: Get geolocation and ISP information
+- **IP Address Lookup**: Get geolocation and ISP information with dual IPv4/IPv6 support
 - **Batch Analysis**: Process multiple domains simultaneously
 - **History Tracking**: Save and compare analysis results over time
 - **Export Functionality**: Export results in JSON or CSV format
@@ -97,6 +97,7 @@ See [docs/API.md](docs/API.md) for complete API documentation.
 | `/api/host/port-scan` | POST | Port scanning | No |
 | `/api/host/ssl-check` | POST | SSL certificate check | No |
 | `/api/ip/current` | GET | Get current IP | No |
+| `/api/ip/dual` | GET | Get IPv4 and IPv6 | No |
 | `/api/ip/lookup` | POST | IP geolocation lookup | No |
 | `/api/batch/analyze` | POST | Batch domain analysis | **Yes** |
 | `/api/history` | GET | Get analysis history | No |

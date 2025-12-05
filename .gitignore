@@ -30,7 +30,7 @@ coverage/
 *.swp
 *.swo
 *~
-*.kiro/
+.kiro/
 
 # OS
 .DS_Store
@@ -51,4 +51,13 @@ tmp/
 
 # Archives
 *.zip
-*REPO_*
+
+# Temporary/backup folders
+newdns/
+REPO_DESCRIPTION.md
+changelog.new.md
+# Lock files (optional - uncomment if you want to ignore)
+# package-lock.json
+# yarn.lock
+.gitignore
+frontend/.htaccess

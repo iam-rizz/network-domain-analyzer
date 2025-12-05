@@ -17,10 +17,22 @@ interface IPResult {
   timestamp: string;
 }
 
+// Dual IP Result interface
+interface DualIPResult {
+  ipv4: IPResult | null;
+  ipv6: IPResult | null;
+}
+
 // API Response interface
 interface IPLookupResponse {
   success: boolean;
   data: IPResult;
+}
+
+// Dual IP API Response interface
+interface DualIPLookupResponse {
+  success: boolean;
+  data: DualIPResult;
 }
 
 // Error response interface
@@ -33,18 +45,203 @@ interface IPError {
   };
 }
 
+// IP Result Card Component
+const IPResultCard: React.FC<{ result: IPResult; formatTimestamp: (ts: string) => string }> = ({ result, formatTimestamp }) => {
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(result.ip);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = result.ip;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+  <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center space-x-3 min-w-0">
+          <div className="flex-shrink-0">
+            <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+              result.type === 'IPv4' ? 'bg-green-100' : 'bg-purple-100'
+            }`}>
+              <svg className={`h-6 w-6 ${result.type === 'IPv4' ? 'text-green-600' : 'text-purple-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+              </svg>
+            </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-base sm:text-lg font-medium text-gray-900 font-mono truncate" title={result.ip}>
+                {result.ip}
+              </h3>
+              <button
+                onClick={handleCopy}
+                className="flex-shrink-0 p-1.5 rounded-md hover:bg-gray-200 transition-colors"
+                title="Copy IP address"
+              >
+                {copied ? (
+                  <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              result.type === 'IPv4' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'
+            }`}>
+              {result.type}
+            </span>
+          </div>
+        </div>
+        <span className="text-xs sm:text-sm text-gray-500 flex-shrink-0">
+          {formatTimestamp(result.timestamp)}
+        </span>
+      </div>
+    </div>
+
+    <div className="px-6 py-4">
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+        {/* Location Section */}
+        <div className="sm:col-span-2">
+          <dt className="text-sm font-medium text-gray-500 flex items-center">
+            <svg className="h-5 w-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Location
+          </dt>
+          <dd className="mt-1 text-sm text-gray-900">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <span className="block text-xs text-gray-500 uppercase tracking-wide">Country</span>
+                  <span className="block mt-1 font-medium">{result.country}</span>
+                </div>
+                <div>
+                  <span className="block text-xs text-gray-500 uppercase tracking-wide">Region</span>
+                  <span className="block mt-1 font-medium">{result.region}</span>
+                </div>
+                <div>
+                  <span className="block text-xs text-gray-500 uppercase tracking-wide">City</span>
+                  <span className="block mt-1 font-medium">{result.city}</span>
+                </div>
+              </div>
+            </div>
+          </dd>
+        </div>
+
+        {/* ISP */}
+        <div>
+          <dt className="text-sm font-medium text-gray-500 flex items-center">
+            <svg className="h-5 w-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+            </svg>
+            ISP
+          </dt>
+          <dd className="mt-1 text-sm text-gray-900">{result.isp}</dd>
+        </div>
+
+        {/* Organization */}
+        <div>
+          <dt className="text-sm font-medium text-gray-500 flex items-center">
+            <svg className="h-5 w-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            Organization
+          </dt>
+          <dd className="mt-1 text-sm text-gray-900">{result.organization}</dd>
+        </div>
+
+        {/* Timezone */}
+        <div className="sm:col-span-2">
+          <dt className="text-sm font-medium text-gray-500 flex items-center">
+            <svg className="h-5 w-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Timezone
+          </dt>
+          <dd className="mt-1 text-sm text-gray-900">{result.timezone}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+  );
+};
+
 const IPChecker: React.FC = () => {
   const [customIP, setCustomIP] = useState('');
   const [validationError, setValidationError] = useState('');
   const [activeTab, setActiveTab] = useState<'current' | 'custom'>('current');
   const { addNotification, rateLimit } = useApp();
 
-  // Fetch current IP on component mount
-  const currentIPQuery = useQuery<IPLookupResponse, IPError>({
-    queryKey: ['currentIP'],
+  // Fetch both IPv4 and IPv6 directly from client browser
+  const dualIPQuery = useQuery<DualIPLookupResponse, IPError>({
+    queryKey: ['dualIP'],
     queryFn: async () => {
-      const response = await axiosClient.get('/ip/current');
-      return response.data;
+      const results: DualIPResult = {
+        ipv4: null,
+        ipv6: null,
+      };
+
+      // Fetch IPv4 and IPv6 in parallel directly from browser
+      const [ipv4Response, ipv6Response] = await Promise.allSettled([
+        fetch('https://api.ipify.org?format=json').then(r => r.json()),
+        fetch('https://api64.ipify.org?format=json').then(r => r.json()),
+      ]);
+
+      // Get IPv4
+      let ipv4: string | null = null;
+      if (ipv4Response.status === 'fulfilled' && ipv4Response.value?.ip) {
+        ipv4 = ipv4Response.value.ip;
+      }
+
+      // Get IPv6 (only if it's actually IPv6, not IPv4)
+      let ipv6: string | null = null;
+      if (ipv6Response.status === 'fulfilled' && ipv6Response.value?.ip) {
+        const ip = ipv6Response.value.ip;
+        if (ip.includes(':')) {
+          ipv6 = ip;
+        }
+      }
+
+      // Lookup geolocation for both IPs via backend
+      const lookupPromises: Promise<void>[] = [];
+
+      if (ipv4) {
+        lookupPromises.push(
+          axiosClient.post('/ip/lookup', { ip: ipv4 })
+            .then(res => { results.ipv4 = res.data.data; })
+            .catch(() => { /* IPv4 lookup failed */ })
+        );
+      }
+
+      if (ipv6) {
+        lookupPromises.push(
+          axiosClient.post('/ip/lookup', { ip: ipv6 })
+            .then(res => { results.ipv6 = res.data.data; })
+            .catch(() => { /* IPv6 lookup failed */ })
+        );
+      }
+
+      await Promise.all(lookupPromises);
+
+      return { success: true, data: results };
     },
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -161,16 +358,15 @@ const IPChecker: React.FC = () => {
   const isApproachingRateLimit = rateLimit && rateLimit.remaining < rateLimit.limit * 0.2;
 
   // Get the result to display based on active tab
-  const displayResult = activeTab === 'current' 
-    ? currentIPQuery.data?.data 
-    : customIPMutation.data?.data;
+  const dualIPResult = dualIPQuery.data?.data;
+  const customResult = customIPMutation.data?.data;
 
   const isLoading = activeTab === 'current' 
-    ? currentIPQuery.isLoading 
+    ? dualIPQuery.isLoading 
     : customIPMutation.isPending;
 
   const error = activeTab === 'current' 
-    ? currentIPQuery.error 
+    ? dualIPQuery.error 
     : customIPMutation.error;
 
 
@@ -235,14 +431,14 @@ const IPChecker: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-gray-600">
-                  Your current public IP address and location information
+                  Your current public IPv4 and IPv6 addresses with location information
                 </p>
                 <button
-                  onClick={() => currentIPQuery.refetch()}
-                  disabled={currentIPQuery.isLoading || currentIPQuery.isFetching}
+                  onClick={() => dualIPQuery.refetch()}
+                  disabled={dualIPQuery.isLoading || dualIPQuery.isFetching}
                   className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                 >
-                  {currentIPQuery.isFetching ? (
+                  {dualIPQuery.isFetching ? (
                     <svg className="animate-spin h-4 w-4 mr-1.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -320,100 +516,42 @@ const IPChecker: React.FC = () => {
         </div>
       )}
 
-      {/* Results Display */}
-      {displayResult && !isLoading && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                    </svg>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900">{displayResult.ip}</h3>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    displayResult.type === 'IPv4' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'
-                  }`}>
-                    {displayResult.type}
-                  </span>
-                </div>
+      {/* Dual IP Results Display (Current Tab) */}
+      {activeTab === 'current' && dualIPResult && !isLoading && (
+        <div className="space-y-4">
+          {/* IPv4 Result */}
+          {dualIPResult.ipv4 ? (
+            <IPResultCard result={dualIPResult.ipv4} formatTimestamp={formatTimestamp} />
+          ) : (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 text-yellow-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="text-sm text-yellow-700">IPv4 address not available</span>
               </div>
-              <span className="text-sm text-gray-500">
-                {formatTimestamp(displayResult.timestamp)}
-              </span>
             </div>
-          </div>
+          )}
 
-          <div className="px-6 py-4">
-            <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-              {/* Location Section */}
-              <div className="sm:col-span-2">
-                <dt className="text-sm font-medium text-gray-500 flex items-center">
-                  <svg className="h-5 w-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  Location
-                </dt>
-                <dd className="mt-1 text-sm text-gray-900">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <span className="block text-xs text-gray-500 uppercase tracking-wide">Country</span>
-                        <span className="block mt-1 font-medium">{displayResult.country}</span>
-                      </div>
-                      <div>
-                        <span className="block text-xs text-gray-500 uppercase tracking-wide">Region</span>
-                        <span className="block mt-1 font-medium">{displayResult.region}</span>
-                      </div>
-                      <div>
-                        <span className="block text-xs text-gray-500 uppercase tracking-wide">City</span>
-                        <span className="block mt-1 font-medium">{displayResult.city}</span>
-                      </div>
-                    </div>
-                  </div>
-                </dd>
+          {/* IPv6 Result */}
+          {dualIPResult.ipv6 ? (
+            <IPResultCard result={dualIPResult.ipv6} formatTimestamp={formatTimestamp} />
+          ) : (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 text-yellow-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="text-sm text-yellow-700">IPv6 address not available (your network may not support IPv6)</span>
               </div>
-
-              {/* ISP */}
-              <div>
-                <dt className="text-sm font-medium text-gray-500 flex items-center">
-                  <svg className="h-5 w-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-                  </svg>
-                  ISP
-                </dt>
-                <dd className="mt-1 text-sm text-gray-900">{displayResult.isp}</dd>
-              </div>
-
-              {/* Organization */}
-              <div>
-                <dt className="text-sm font-medium text-gray-500 flex items-center">
-                  <svg className="h-5 w-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                  Organization
-                </dt>
-                <dd className="mt-1 text-sm text-gray-900">{displayResult.organization}</dd>
-              </div>
-
-              {/* Timezone */}
-              <div className="sm:col-span-2">
-                <dt className="text-sm font-medium text-gray-500 flex items-center">
-                  <svg className="h-5 w-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Timezone
-                </dt>
-                <dd className="mt-1 text-sm text-gray-900">{displayResult.timezone}</dd>
-              </div>
-            </dl>
-          </div>
+            </div>
+          )}
         </div>
+      )}
+
+      {/* Custom IP Result Display */}
+      {activeTab === 'custom' && customResult && !isLoading && (
+        <IPResultCard result={customResult} formatTimestamp={formatTimestamp} />
       )}
 
 
@@ -432,7 +570,7 @@ const IPChecker: React.FC = () => {
               ? undefined
               : () => {
                   if (activeTab === 'current') {
-                    currentIPQuery.refetch();
+                    dualIPQuery.refetch();
                   } else if (customIP && validateIPAddress(customIP)) {
                     customIPMutation.mutate(customIP.trim());
                   }
@@ -445,7 +583,7 @@ const IPChecker: React.FC = () => {
               customIPMutation.reset();
             }
           }}
-          isRetrying={activeTab === 'current' ? currentIPQuery.isFetching : customIPMutation.isPending}
+          isRetrying={activeTab === 'current' ? dualIPQuery.isFetching : customIPMutation.isPending}
         />
       )}
 

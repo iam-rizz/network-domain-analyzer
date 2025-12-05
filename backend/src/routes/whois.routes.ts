@@ -5,12 +5,14 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { WHOISService } from '../services/whois.service';
+import { HistoryService } from '../services/history.service';
 import { AppError } from '../models/error.types';
 import { sanitizeBody } from '../middleware/sanitization.middleware';
 import { createRateLimiter } from '../middleware/rateLimiter.middleware';
 
 const router = Router();
 const whoisService = new WHOISService();
+const historyService = new HistoryService();
 
 // Rate limiter for WHOIS endpoints
 const whoisRateLimiter = createRateLimiter({
@@ -47,13 +49,27 @@ router.post(
       const needsRenewal = whoisService.needsRenewalReminder(result.expirationDate);
       const daysUntilExpiry = whoisService.getDaysUntilExpiry(result.expirationDate);
 
+      const responseData = {
+        ...result,
+        needsRenewal,
+        daysUntilExpiry,
+      };
+
+      // Save to history
+      try {
+        historyService.saveAnalysis({
+          type: 'whois',
+          domain,
+          result: responseData,
+          status: 'success',
+        });
+      } catch {
+        // Don't fail the request if history save fails
+      }
+
       res.json({
         success: true,
-        data: {
-          ...result,
-          needsRenewal,
-          daysUntilExpiry,
-        },
+        data: responseData,
       });
     } catch (error) {
       next(error);

@@ -13,8 +13,15 @@ import { validateIP, isPrivateIP } from '../utils/validation';
 const IP_API_BASE_URL = 'http://ip-api.com/json';
 const IP_API_TIMEOUT = 5000; // 5 seconds
 
-// External service to detect public IP when running locally
+// External services to detect public IP when running locally
 const PUBLIC_IP_API_URL = 'https://ipinfo.io/json';
+const PUBLIC_IPV4_API_URL = 'https://api.ipify.org?format=json';
+const PUBLIC_IPV6_API_URL = 'https://api64.ipify.org?format=json';
+
+export interface DualIPResult {
+  ipv4: IPResult | null;
+  ipv6: IPResult | null;
+}
 
 export class IPService {
   /**
@@ -67,6 +74,88 @@ export class IPService {
         { error: error.message }
       );
     }
+  }
+
+  /**
+   * Fetch public IPv4 address from external service
+   * @returns IPv4 address string or null if not available
+   */
+  async fetchPublicIPv4(): Promise<string | null> {
+    try {
+      const response = await axios.get(PUBLIC_IPV4_API_URL, {
+        timeout: IP_API_TIMEOUT,
+      });
+      
+      if (response.data && response.data.ip) {
+        return response.data.ip;
+      }
+      
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch public IPv6 address from external service
+   * @returns IPv6 address string or null if not available
+   */
+  async fetchPublicIPv6(): Promise<string | null> {
+    try {
+      const response = await axios.get(PUBLIC_IPV6_API_URL, {
+        timeout: IP_API_TIMEOUT,
+      });
+      
+      if (response.data && response.data.ip) {
+        const ip = response.data.ip;
+        // Check if it's actually IPv6 (not IPv4)
+        if (ip.includes(':')) {
+          return ip;
+        }
+      }
+      
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get both IPv4 and IPv6 addresses with geolocation info
+   * @param _request - Express request object (optional, for future use)
+   * @returns DualIPResult with both IPv4 and IPv6 information
+   */
+  async getDualIP(_request?: Request): Promise<DualIPResult> {
+    const results: DualIPResult = {
+      ipv4: null,
+      ipv6: null,
+    };
+
+    // Fetch both IPs in parallel
+    const [ipv4, ipv6] = await Promise.all([
+      this.fetchPublicIPv4(),
+      this.fetchPublicIPv6(),
+    ]);
+
+    // Lookup IPv4 if available
+    if (ipv4) {
+      try {
+        results.ipv4 = await this.lookupIP(ipv4);
+      } catch {
+        // IPv4 lookup failed, continue
+      }
+    }
+
+    // Lookup IPv6 if available
+    if (ipv6) {
+      try {
+        results.ipv6 = await this.lookupIP(ipv6);
+      } catch {
+        // IPv6 lookup failed, continue
+      }
+    }
+
+    return results;
   }
 
   /**

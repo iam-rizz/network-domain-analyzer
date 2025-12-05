@@ -5,6 +5,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { DNSService } from '../services/dns.service';
+import { HistoryService } from '../services/history.service';
 import { DNSRecordType } from '../models/dns.types';
 import { AppError } from '../models/error.types';
 import { sanitizeBody } from '../middleware/sanitization.middleware';
@@ -12,6 +13,7 @@ import { createRateLimiter } from '../middleware/rateLimiter.middleware';
 
 const router = Router();
 const dnsService = new DNSService();
+const historyService = new HistoryService();
 
 // Rate limiter for DNS endpoints
 const dnsRateLimiter = createRateLimiter({
@@ -70,6 +72,18 @@ router.post(
       // Perform DNS lookup
       const result = await dnsService.lookupRecords(domain, types);
 
+      // Save to history
+      try {
+        historyService.saveAnalysis({
+          type: 'dns_lookup',
+          domain,
+          result,
+          status: 'success',
+        });
+      } catch {
+        // Don't fail the request if history save fails
+      }
+
       res.json({
         success: true,
         data: result,
@@ -124,6 +138,18 @@ router.post(
 
       // Check propagation
       const result = await dnsService.checkPropagation(domain, recordType);
+
+      // Save to history
+      try {
+        historyService.saveAnalysis({
+          type: 'dns_propagation',
+          domain,
+          result,
+          status: 'success',
+        });
+      } catch {
+        // Don't fail the request if history save fails
+      }
 
       res.json({
         success: true,

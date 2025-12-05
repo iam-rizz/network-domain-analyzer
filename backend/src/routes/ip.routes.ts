@@ -5,12 +5,14 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { IPService } from '../services/ip.service';
+import { HistoryService } from '../services/history.service';
 import { AppError } from '../models/error.types';
 import { sanitizeBody } from '../middleware/sanitization.middleware';
 import { createRateLimiter } from '../middleware/rateLimiter.middleware';
 
 const router = Router();
 const ipService = new IPService();
+const historyService = new HistoryService();
 
 // Rate limiter for IP endpoints
 const ipRateLimiter = createRateLimiter({
@@ -33,6 +35,28 @@ router.get(
 
       // Lookup IP information
       const result = await ipService.lookupIP(currentIP);
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/ip/dual
+ * Get both IPv4 and IPv6 addresses of the requester with geolocation info
+ */
+router.get(
+  '/dual',
+  ipRateLimiter.middleware(),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Get both IPv4 and IPv6 addresses
+      const result = await ipService.getDualIP(req);
 
       res.json({
         success: true,
@@ -68,6 +92,18 @@ router.post(
 
       // Perform IP lookup
       const result = await ipService.lookupIP(ip);
+
+      // Save to history
+      try {
+        historyService.saveAnalysis({
+          type: 'ip_lookup',
+          ip,
+          result,
+          status: 'success',
+        });
+      } catch {
+        // Don't fail the request if history save fails
+      }
 
       res.json({
         success: true,

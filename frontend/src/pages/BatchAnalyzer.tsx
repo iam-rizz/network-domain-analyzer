@@ -38,7 +38,7 @@ interface BatchAnalyzeResponse {
   };
 }
 
-const MAX_BATCH_SIZE = 50;
+const MAX_BATCH_SIZE = 10;
 
 const BatchAnalyzer: React.FC = () => {
   const [domainsInput, setDomainsInput] = useState('');
