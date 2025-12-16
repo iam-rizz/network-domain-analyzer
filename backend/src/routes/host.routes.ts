@@ -9,6 +9,7 @@ import { HistoryService } from '../services/history.service';
 import { AppError } from '../models/error.types';
 import { sanitizeBody } from '../middleware/sanitization.middleware';
 import { createRateLimiter } from '../middleware/rateLimiter.middleware';
+import { blockLocalHostWithDNS, blockLocalIPWithDNS } from '../middleware/localIP.middleware';
 
 const router = Router();
 const hostService = new HostService();
@@ -28,6 +29,7 @@ router.post(
   '/ping',
   hostRateLimiter.middleware(),
   sanitizeBody(),
+  blockLocalHostWithDNS,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { host, locations } = req.body;
@@ -85,6 +87,7 @@ router.post(
   '/http-check',
   hostRateLimiter.middleware(),
   sanitizeBody(),
+  blockLocalHostWithDNS,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { url } = req.body;
@@ -141,6 +144,7 @@ router.post(
   '/port-scan',
   hostRateLimiter.middleware(),
   sanitizeBody(),
+  blockLocalHostWithDNS,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { host, ports } = req.body;
@@ -212,6 +216,7 @@ router.post(
   '/ssl-check',
   hostRateLimiter.middleware(),
   sanitizeBody(),
+  blockLocalIPWithDNS({ bodyFields: ['domain'], urlFields: [] }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { domain } = req.body;

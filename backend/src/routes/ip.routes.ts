@@ -9,6 +9,7 @@ import { HistoryService } from '../services/history.service';
 import { AppError } from '../models/error.types';
 import { sanitizeBody } from '../middleware/sanitization.middleware';
 import { createRateLimiter } from '../middleware/rateLimiter.middleware';
+import { blockLocalIPLookup } from '../middleware/localIP.middleware';
 
 const router = Router();
 const ipService = new IPService();
@@ -76,6 +77,7 @@ router.post(
   '/lookup',
   ipRateLimiter.middleware(),
   sanitizeBody(),
+  blockLocalIPLookup,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { ip } = req.body;
