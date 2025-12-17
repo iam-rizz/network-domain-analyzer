@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { DNSService } from '../services/dns.service';
+import { DNSService, ProbeRegion } from '../services/dns.service';
 import { HistoryService } from '../services/history.service';
 import { DNSRecordType } from '../models/dns.types';
 import { AppError } from '../models/error.types';
@@ -97,6 +97,12 @@ router.post(
 /**
  * POST /api/dns/propagation
  * Check DNS propagation across multiple locations
+ * 
+ * Body params:
+ * - domain: string (required) - Domain to check
+ * - recordType: string (required) - DNS record type (A, AAAA, MX, etc.)
+ * - regions: string[] (optional) - Regions to check: americas, europe, asia, oceania, global, all
+ * - maxLocations: number (optional) - Maximum number of locations to check (default: 10)
  */
 router.post(
   '/propagation',
@@ -104,7 +110,7 @@ router.post(
   sanitizeBody(),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { domain, recordType } = req.body;
+      const { domain, recordType, regions, maxLocations } = req.body;
 
       // Validate required fields
       if (!domain) {
@@ -136,8 +142,52 @@ router.post(
         );
       }
 
+      // Validate regions if provided
+      const validRegions: ProbeRegion[] = ['americas', 'europe', 'asia', 'oceania', 'global', 'all'];
+      let selectedRegions: ProbeRegion[] | undefined;
+      
+      if (regions) {
+        if (!Array.isArray(regions)) {
+          throw new AppError(
+            'VALIDATION_ERROR',
+            'regions must be an array',
+            400,
+            { field: 'regions' }
+          );
+        }
+        
+        for (const region of regions) {
+          if (!validRegions.includes(region)) {
+            throw new AppError(
+              'VALIDATION_ERROR',
+              `Invalid region: ${region}. Valid regions are: ${validRegions.join(', ')}`,
+              400,
+              { field: 'regions', invalidRegion: region }
+            );
+          }
+        }
+        selectedRegions = regions;
+      }
+
+      // Validate maxLocations if provided
+      let maxLocs: number | undefined;
+      if (maxLocations !== undefined) {
+        maxLocs = parseInt(maxLocations, 10);
+        if (isNaN(maxLocs) || maxLocs < 1 || maxLocs > 30) {
+          throw new AppError(
+            'VALIDATION_ERROR',
+            'maxLocations must be a number between 1 and 30',
+            400,
+            { field: 'maxLocations' }
+          );
+        }
+      }
+
       // Check propagation
-      const result = await dnsService.checkPropagation(domain, recordType);
+      const result = await dnsService.checkPropagation(domain, recordType, {
+        regions: selectedRegions,
+        maxLocations: maxLocs,
+      });
 
       // Save to history
       try {
@@ -154,6 +204,42 @@ router.post(
       res.json({
         success: true,
         data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/dns/probe-locations
+ * Get available DNS probe locations grouped by region
+ */
+router.get(
+  '/probe-locations',
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const locations = dnsService.getAvailableProbeLocations();
+      
+      // Count total unique servers
+      const allServers = new Set<string>();
+      Object.values(locations).forEach(locs => {
+        locs.forEach(loc => allServers.add(loc.server));
+      });
+
+      res.json({
+        success: true,
+        data: {
+          locations,
+          summary: {
+            americas: locations.americas.length,
+            europe: locations.europe.length,
+            asia: locations.asia.length,
+            oceania: locations.oceania.length,
+            global: locations.global.length,
+            total: allServers.size,
+          },
+        },
       });
     } catch (error) {
       next(error);

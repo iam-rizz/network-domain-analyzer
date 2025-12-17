@@ -9,16 +9,151 @@ import { DNSRecord, DNSRecordType, DNSResult, PropagationStatus, LocationResult 
 import { AppError } from '../models/error.types';
 import { validateDomain } from '../utils/validation';
 
-// Public DNS servers for propagation checking (probe locations)
-const PROBE_LOCATIONS = [
-  { name: 'Google Primary', server: '8.8.8.8' },
-  { name: 'Google Secondary', server: '8.8.4.4' },
-  { name: 'Cloudflare Primary', server: '1.1.1.1' },
-  { name: 'Cloudflare Secondary', server: '1.0.0.1' },
-  { name: 'Quad9', server: '9.9.9.9' },
-  { name: 'OpenDNS Primary', server: '208.67.222.222' },
-  { name: 'OpenDNS Secondary', server: '208.67.220.220' },
+/**
+ * DNS Probe Location interface
+ */
+export interface ProbeLocation {
+  name: string;
+  server: string;
+  region: 'americas' | 'europe' | 'asia' | 'oceania' | 'global';
+  country?: string;
+}
+
+/**
+ * Available regions for DNS propagation check
+ */
+export type ProbeRegion = 'americas' | 'europe' | 'asia' | 'oceania' | 'global' | 'all';
+
+/**
+ * Public DNS servers for propagation checking, organized by region
+ * These are reliable public DNS servers from various providers worldwide
+ */
+export const DNS_PROBE_LOCATIONS: ProbeLocation[] = [
+  // === AMERICAS ===
+  { name: 'Google (USA)', server: '8.8.8.8', region: 'americas', country: 'USA' },
+  { name: 'Google Secondary (USA)', server: '8.8.4.4', region: 'americas', country: 'USA' },
+  { name: 'Cloudflare (USA)', server: '1.1.1.1', region: 'americas', country: 'USA' },
+  { name: 'Cloudflare Secondary (USA)', server: '1.0.0.1', region: 'americas', country: 'USA' },
+  { name: 'OpenDNS (USA)', server: '208.67.222.222', region: 'americas', country: 'USA' },
+  { name: 'OpenDNS Secondary (USA)', server: '208.67.220.220', region: 'americas', country: 'USA' },
+  { name: 'Quad9 (USA)', server: '9.9.9.9', region: 'americas', country: 'USA' },
+  { name: 'Level3 (USA)', server: '4.2.2.1', region: 'americas', country: 'USA' },
+  { name: 'Comodo (USA)', server: '8.26.56.26', region: 'americas', country: 'USA' },
+  { name: 'Verisign (USA)', server: '64.6.64.6', region: 'americas', country: 'USA' },
+  { name: 'CleanBrowsing (USA)', server: '185.228.168.9', region: 'americas', country: 'USA' },
+  
+  // === EUROPE ===
+  { name: 'DNS.Watch (Germany)', server: '84.200.69.80', region: 'europe', country: 'Germany' },
+  { name: 'DNS.Watch Secondary (Germany)', server: '84.200.70.40', region: 'europe', country: 'Germany' },
+  { name: 'Freenom (Netherlands)', server: '80.80.80.80', region: 'europe', country: 'Netherlands' },
+  { name: 'Freenom Secondary (Netherlands)', server: '80.80.81.81', region: 'europe', country: 'Netherlands' },
+  { name: 'UncensoredDNS (Denmark)', server: '91.239.100.100', region: 'europe', country: 'Denmark' },
+  { name: 'AdGuard (Cyprus)', server: '94.140.14.14', region: 'europe', country: 'Cyprus' },
+  { name: 'AdGuard Secondary (Cyprus)', server: '94.140.15.15', region: 'europe', country: 'Cyprus' },
+  { name: 'Mullvad (Sweden)', server: '194.242.2.2', region: 'europe', country: 'Sweden' },
+  
+  // === ASIA ===
+  { name: 'Yandex (Russia)', server: '77.88.8.8', region: 'asia', country: 'Russia' },
+  { name: 'Yandex Secondary (Russia)', server: '77.88.8.1', region: 'asia', country: 'Russia' },
+  { name: 'AliDNS (China)', server: '223.5.5.5', region: 'asia', country: 'China' },
+  { name: 'AliDNS Secondary (China)', server: '223.6.6.6', region: 'asia', country: 'China' },
+  { name: 'DNSPod (China)', server: '119.29.29.29', region: 'asia', country: 'China' },
+  { name: '114DNS (China)', server: '114.114.114.114', region: 'asia', country: 'China' },
+  { name: 'TWNIC (Taiwan)', server: '101.101.101.101', region: 'asia', country: 'Taiwan' },
+  { name: 'IIJ (Japan)', server: '210.130.0.1', region: 'asia', country: 'Japan' },
+  { name: 'KT (South Korea)', server: '168.126.63.1', region: 'asia', country: 'South Korea' },
+  { name: 'SingNet (Singapore)', server: '165.21.83.88', region: 'asia', country: 'Singapore' },
+  
+  // === OCEANIA ===
+  { name: 'Cloudflare APAC (Australia)', server: '1.1.1.1', region: 'oceania', country: 'Australia' },
+  { name: 'Telstra (Australia)', server: '139.130.4.5', region: 'oceania', country: 'Australia' },
+  
+  // === GLOBAL (Anycast - multiple locations) ===
+  { name: 'Cloudflare Anycast', server: '1.1.1.1', region: 'global' },
+  { name: 'Google Anycast', server: '8.8.8.8', region: 'global' },
+  { name: 'Quad9 Anycast', server: '9.9.9.9', region: 'global' },
 ];
+
+/**
+ * Get probe locations by region
+ * @param regions - Array of regions to include, or 'all' for all regions
+ * @returns Filtered probe locations
+ */
+export function getProbeLocationsByRegion(regions: ProbeRegion | ProbeRegion[]): ProbeLocation[] {
+  const regionArray = Array.isArray(regions) ? regions : [regions];
+  
+  if (regionArray.includes('all')) {
+    // Return unique servers (avoid duplicates from global/regional overlap)
+    const seen = new Set<string>();
+    return DNS_PROBE_LOCATIONS.filter(loc => {
+      if (seen.has(loc.server)) return false;
+      seen.add(loc.server);
+      return true;
+    });
+  }
+  
+  const seen = new Set<string>();
+  return DNS_PROBE_LOCATIONS.filter(loc => {
+    if (seen.has(loc.server)) return false;
+    if (regionArray.includes(loc.region)) {
+      seen.add(loc.server);
+      return true;
+    }
+    return false;
+  });
+}
+
+/**
+ * Parse custom DNS servers from environment variable
+ * Format: "Name1:IP1,Name2:IP2" or just "IP1,IP2"
+ * @returns Array of custom probe locations
+ */
+function parseCustomDNSServers(): ProbeLocation[] {
+  const customServers = process.env.DNS_PROBE_SERVERS;
+  if (!customServers) return [];
+  
+  const locations: ProbeLocation[] = [];
+  const entries = customServers.split(',').map(s => s.trim()).filter(Boolean);
+  
+  for (const entry of entries) {
+    if (entry.includes(':')) {
+      const [name, server] = entry.split(':').map(s => s.trim());
+      if (name && server) {
+        locations.push({ name, server, region: 'global' });
+      }
+    } else {
+      // Just IP address
+      locations.push({ name: `Custom (${entry})`, server: entry, region: 'global' });
+    }
+  }
+  
+  return locations;
+}
+
+/**
+ * Get default probe locations (from env or defaults)
+ * @returns Array of probe locations to use
+ */
+function getDefaultProbeLocations(): ProbeLocation[] {
+  // Check for custom servers first
+  const customServers = parseCustomDNSServers();
+  if (customServers.length > 0) {
+    return customServers;
+  }
+  
+  // Check for region preference from env
+  const regionPref = process.env.DNS_PROBE_REGIONS;
+  if (regionPref) {
+    const regions = regionPref.split(',').map(r => r.trim().toLowerCase()) as ProbeRegion[];
+    return getProbeLocationsByRegion(regions);
+  }
+  
+  // Default: use a balanced mix from all regions
+  return getProbeLocationsByRegion(['americas', 'europe', 'asia']);
+}
+
+// Legacy export for backward compatibility
+export const PROBE_LOCATIONS = getDefaultProbeLocations().slice(0, 7);
 
 export class DNSService {
   /**
@@ -204,11 +339,17 @@ export class DNSService {
    * Check DNS propagation across multiple locations
    * @param domain - Domain name to check
    * @param recordType - DNS record type to check
+   * @param options - Optional configuration for probe locations
    * @returns PropagationStatus with results from all locations
    */
   async checkPropagation(
     domain: string,
-    recordType: DNSRecordType
+    recordType: DNSRecordType,
+    options?: {
+      regions?: ProbeRegion[];
+      maxLocations?: number;
+      customServers?: Array<{ name: string; server: string }>;
+    }
   ): Promise<PropagationStatus> {
     // Validate domain
     const validation = validateDomain(domain);
@@ -223,8 +364,41 @@ export class DNSService {
 
     const normalizedDomain = validation.domain!;
     
-    // Use at least 5 probe locations as per requirement 2.1
-    const locationsToProbe = PROBE_LOCATIONS.slice(0, 5);
+    // Determine which locations to probe
+    let locationsToProbe: ProbeLocation[];
+    
+    if (options?.customServers && options.customServers.length > 0) {
+      // Use custom servers if provided
+      locationsToProbe = options.customServers.map(s => ({
+        name: s.name,
+        server: s.server,
+        region: 'global' as const,
+      }));
+    } else if (options?.regions && options.regions.length > 0) {
+      // Use specified regions
+      locationsToProbe = getProbeLocationsByRegion(options.regions);
+    } else {
+      // Use default locations
+      locationsToProbe = getDefaultProbeLocations();
+    }
+    
+    // Limit number of locations if specified (default from env or 20)
+    const defaultMaxLocations = parseInt(process.env.DNS_PROBE_MAX_LOCATIONS || '20', 10);
+    const maxLocations = options?.maxLocations || defaultMaxLocations;
+    locationsToProbe = locationsToProbe.slice(0, maxLocations);
+    
+    // Ensure at least 5 probe locations as per requirement 2.1
+    if (locationsToProbe.length < 5) {
+      // Fill with defaults if not enough
+      const defaults = getProbeLocationsByRegion('all');
+      const existingServers = new Set(locationsToProbe.map(l => l.server));
+      for (const loc of defaults) {
+        if (!existingServers.has(loc.server)) {
+          locationsToProbe.push(loc);
+          if (locationsToProbe.length >= 5) break;
+        }
+      }
+    }
     
     // Query all locations in parallel
     const locationPromises = locationsToProbe.map(location =>
@@ -243,6 +417,21 @@ export class DNSService {
       fullyPropagated,
       locations: locationResults,
       inconsistencies,
+    };
+  }
+  
+  /**
+   * Get available probe locations grouped by region
+   * @returns Object with regions and their probe locations
+   */
+  getAvailableProbeLocations(): Record<ProbeRegion, ProbeLocation[]> {
+    return {
+      americas: getProbeLocationsByRegion('americas'),
+      europe: getProbeLocationsByRegion('europe'),
+      asia: getProbeLocationsByRegion('asia'),
+      oceania: getProbeLocationsByRegion('oceania'),
+      global: getProbeLocationsByRegion('global'),
+      all: getProbeLocationsByRegion('all'),
     };
   }
 
