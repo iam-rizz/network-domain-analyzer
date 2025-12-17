@@ -449,16 +449,23 @@ const WHOISLookup: React.FC = () => {
               {result.status.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-900 mb-3">Domain Status</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {result.status.map((status, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                        title={getStatusDescription(status)}
-                      >
-                        {status.split(' ')[0]}
-                      </span>
-                    ))}
+                  <div className="space-y-2">
+                    {result.status.map((status, index) => {
+                      const description = getStatusDescription(status);
+                      const formattedName = formatStatusName(status);
+                      return (
+                        <div key={index} className="flex items-start space-x-2">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 whitespace-nowrap">
+                            {formattedName}
+                          </span>
+                          {description !== status && (
+                            <span className="text-xs text-gray-500 pt-0.5">
+                              {description}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -485,27 +492,68 @@ const WHOISLookup: React.FC = () => {
   );
 };
 
+// Helper function to format status name
+// Handles both camelCase (e.g., "clientTransferProhibited") 
+// and already formatted (e.g., "client transfer prohibited")
+function formatStatusName(status: string): string {
+  // Remove any URL suffix (e.g., "clientTransferProhibited https://icann.org/...")
+  const statusCode = status.split(' ')[0];
+  
+  // Check if already formatted (contains spaces or is all lowercase)
+  if (status.includes(' ') && !status.includes('http')) {
+    // Already formatted, just return as-is
+    return status;
+  }
+  
+  // Convert camelCase to space-separated lowercase
+  // e.g., "clientTransferProhibited" -> "client transfer prohibited"
+  const formatted = statusCode
+    .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+    .toLowerCase()
+    .trim();
+  
+  return formatted;
+}
+
 // Helper function to get status descriptions
 function getStatusDescription(status: string): string {
   const statusDescriptions: Record<string, string> = {
-    clientTransferProhibited:
-      'The domain cannot be transferred to another registrar without authorization.',
-    clientDeleteProhibited: 'The domain cannot be deleted without authorization.',
-    clientUpdateProhibited: 'The domain cannot be updated without authorization.',
-    clientHold: 'The domain is on hold and may not resolve.',
-    serverTransferProhibited: 'The registry has prohibited transfer of this domain.',
-    serverDeleteProhibited: 'The registry has prohibited deletion of this domain.',
-    serverUpdateProhibited: 'The registry has prohibited updates to this domain.',
-    serverHold: 'The registry has placed this domain on hold.',
-    active: 'The domain is active and functioning normally.',
-    ok: 'The domain is in a normal state.',
-    pendingDelete: 'The domain is scheduled for deletion.',
-    pendingTransfer: 'A transfer request is pending for this domain.',
-    redemptionPeriod: 'The domain is in the redemption period after expiration.',
+    // Keys with spaces (new format from backend)
+    'client transfer prohibited': 'The domain cannot be transferred to another registrar without authorization.',
+    'client delete prohibited': 'The domain cannot be deleted without authorization.',
+    'client update prohibited': 'The domain cannot be updated without authorization.',
+    'client hold': 'The domain is on hold and may not resolve.',
+    'server transfer prohibited': 'The registry has prohibited transfer of this domain.',
+    'server delete prohibited': 'The registry has prohibited deletion of this domain.',
+    'server update prohibited': 'The registry has prohibited updates to this domain.',
+    'server hold': 'The registry has placed this domain on hold.',
+    'pending delete': 'The domain is scheduled for deletion.',
+    'pending transfer': 'A transfer request is pending for this domain.',
+    'redemption period': 'The domain is in the redemption period after expiration.',
+    // Keys without spaces (legacy camelCase format)
+    'clienttransferprohibited': 'The domain cannot be transferred to another registrar without authorization.',
+    'clientdeleteprohibited': 'The domain cannot be deleted without authorization.',
+    'clientupdateprohibited': 'The domain cannot be updated without authorization.',
+    'clienthold': 'The domain is on hold and may not resolve.',
+    'servertransferprohibited': 'The registry has prohibited transfer of this domain.',
+    'serverdeleteprohibited': 'The registry has prohibited deletion of this domain.',
+    'serverupdateprohibited': 'The registry has prohibited updates to this domain.',
+    'serverhold': 'The registry has placed this domain on hold.',
+    'pendingdelete': 'The domain is scheduled for deletion.',
+    'pendingtransfer': 'A transfer request is pending for this domain.',
+    'redemptionperiod': 'The domain is in the redemption period after expiration.',
+    // Simple statuses
+    'active': 'The domain is active and functioning normally.',
+    'ok': 'The domain is in a normal state.',
   };
 
-  const key = status.split(' ')[0].toLowerCase();
-  return statusDescriptions[key] || status;
+  // Normalize the status: remove URL suffix and convert to lowercase
+  const normalizedStatus = status
+    .split('http')[0]  // Remove URL suffix
+    .trim()
+    .toLowerCase();
+  
+  return statusDescriptions[normalizedStatus] || status;
 }
 
 export default WHOISLookup;
