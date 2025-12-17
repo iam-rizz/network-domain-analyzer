@@ -21,6 +21,20 @@ export interface SSLResult {
   validFrom: Date;
   validTo: Date;
   daysUntilExpiry: number;
+  // Extended info
+  serialNumber?: string;
+  signatureAlgorithm?: string;
+  publicKeyAlgorithm?: string;
+  publicKeySize?: number;
+  fingerprint?: string;
+  fingerprintSHA256?: string;
+  subjectAltNames?: string[];
+  issuerOrganization?: string;
+  issuerCountry?: string;
+  isWildcard?: boolean;
+  isSelfSigned?: boolean;
+  protocol?: string;
+  cipher?: string;
 }
 
 export interface PortInfo {

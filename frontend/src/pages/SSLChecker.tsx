@@ -14,6 +14,20 @@ interface SSLResult {
   daysUntilExpiry: number;
   isExpiringSoon: boolean;
   isExpired: boolean;
+  // Extended info
+  serialNumber?: string;
+  signatureAlgorithm?: string;
+  publicKeyAlgorithm?: string;
+  publicKeySize?: number;
+  fingerprint?: string;
+  fingerprintSHA256?: string;
+  subjectAltNames?: string[];
+  issuerOrganization?: string;
+  issuerCountry?: string;
+  isWildcard?: boolean;
+  isSelfSigned?: boolean;
+  protocol?: string;
+  cipher?: string;
 }
 
 // API Response interface
@@ -82,12 +96,13 @@ const SSLChecker: React.FC = () => {
     if (cleanValue.startsWith('https://')) {
       cleanValue = cleanValue.substring(8);
     } else if (cleanValue.startsWith('http://')) {
-      setValidationError('HTTP domains do not have SSL certificates. Use HTTPS or enter domain without protocol.');
-      return false;
+      // Allow http:// - backend will strip it and check SSL anyway
+      cleanValue = cleanValue.substring(7);
     }
 
-    // Remove trailing slash and path
+    // Remove trailing slash, path, and port
     cleanValue = cleanValue.split('/')[0];
+    cleanValue = cleanValue.split(':')[0];
 
     // Basic domain validation regex
     const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?(\.[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?)*\.[a-zA-Z]{2,}$/;
@@ -108,12 +123,15 @@ const SSLChecker: React.FC = () => {
       return;
     }
 
-    // Clean domain before sending
+    // Clean domain before sending (backend also does this, but clean for display)
     let cleanDomain = domain.trim().toLowerCase();
     if (cleanDomain.startsWith('https://')) {
       cleanDomain = cleanDomain.substring(8);
+    } else if (cleanDomain.startsWith('http://')) {
+      cleanDomain = cleanDomain.substring(7);
     }
     cleanDomain = cleanDomain.split('/')[0];
+    cleanDomain = cleanDomain.split(':')[0];
 
     sslCheckMutation.mutate({ domain: cleanDomain });
   };
@@ -462,10 +480,145 @@ const SSLChecker: React.FC = () => {
                       Certificate Validation Issue
                     </h3>
                     <p className="mt-2 text-sm text-orange-700">
-                      This certificate may be self-signed or have other validation issues. 
-                      Users may see security warnings when visiting this site.
+                      {sslCheckMutation.data.data.isSelfSigned 
+                        ? 'This is a self-signed certificate. Users will see security warnings.'
+                        : 'This certificate may have validation issues. Users may see security warnings when visiting this site.'}
                     </p>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Extended Certificate Info */}
+            <div className="border-t border-gray-200 pt-6">
+              <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">
+                Certificate Details
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Issuer Organization */}
+                {sslCheckMutation.data.data.issuerOrganization && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs text-gray-500 uppercase">Issuer Organization</p>
+                    <p className="mt-1 text-sm font-medium text-gray-900">
+                      {sslCheckMutation.data.data.issuerOrganization}
+                      {sslCheckMutation.data.data.issuerCountry && (
+                        <span className="text-gray-500"> ({sslCheckMutation.data.data.issuerCountry})</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                {/* Protocol & Cipher */}
+                {sslCheckMutation.data.data.protocol && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs text-gray-500 uppercase">TLS Protocol</p>
+                    <p className="mt-1 text-sm font-medium text-gray-900">
+                      {sslCheckMutation.data.data.protocol}
+                    </p>
+                  </div>
+                )}
+
+                {sslCheckMutation.data.data.cipher && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs text-gray-500 uppercase">Cipher Suite</p>
+                    <p className="mt-1 text-sm font-medium text-gray-900 break-all">
+                      {sslCheckMutation.data.data.cipher}
+                    </p>
+                  </div>
+                )}
+
+                {/* Public Key Info */}
+                {sslCheckMutation.data.data.publicKeyAlgorithm && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs text-gray-500 uppercase">Public Key</p>
+                    <p className="mt-1 text-sm font-medium text-gray-900">
+                      {sslCheckMutation.data.data.publicKeyAlgorithm}
+                      {sslCheckMutation.data.data.publicKeySize && (
+                        <span> ({sslCheckMutation.data.data.publicKeySize} bits)</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                {/* Serial Number */}
+                {sslCheckMutation.data.data.serialNumber && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs text-gray-500 uppercase">Serial Number</p>
+                    <p className="mt-1 text-xs font-mono text-gray-900 break-all">
+                      {sslCheckMutation.data.data.serialNumber}
+                    </p>
+                  </div>
+                )}
+
+                {/* Certificate Type Badges */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-xs text-gray-500 uppercase">Certificate Type</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {sslCheckMutation.data.data.isWildcard && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                        Wildcard
+                      </span>
+                    )}
+                    {sslCheckMutation.data.data.isSelfSigned && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                        Self-Signed
+                      </span>
+                    )}
+                    {!sslCheckMutation.data.data.isSelfSigned && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        CA-Signed
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Subject Alternative Names */}
+            {sslCheckMutation.data.data.subjectAltNames && sslCheckMutation.data.data.subjectAltNames.length > 0 && (
+              <div className="border-t border-gray-200 pt-6">
+                <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">
+                  Subject Alternative Names (SAN)
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {sslCheckMutation.data.data.subjectAltNames.map((san, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
+                    >
+                      {san}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  This certificate is valid for {sslCheckMutation.data.data.subjectAltNames.length} domain(s)
+                </p>
+              </div>
+            )}
+
+            {/* Fingerprints */}
+            {(sslCheckMutation.data.data.fingerprint || sslCheckMutation.data.data.fingerprintSHA256) && (
+              <div className="border-t border-gray-200 pt-6">
+                <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">
+                  Certificate Fingerprints
+                </h4>
+                <div className="space-y-3">
+                  {sslCheckMutation.data.data.fingerprint && (
+                    <div>
+                      <p className="text-xs text-gray-500">SHA-1</p>
+                      <p className="mt-1 text-xs font-mono text-gray-700 break-all bg-gray-50 p-2 rounded">
+                        {sslCheckMutation.data.data.fingerprint}
+                      </p>
+                    </div>
+                  )}
+                  {sslCheckMutation.data.data.fingerprintSHA256 && (
+                    <div>
+                      <p className="text-xs text-gray-500">SHA-256</p>
+                      <p className="mt-1 text-xs font-mono text-gray-700 break-all bg-gray-50 p-2 rounded">
+                        {sslCheckMutation.data.data.fingerprintSHA256}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

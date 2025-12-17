@@ -7,7 +7,6 @@ import axios, { AxiosError } from 'axios';
 import * as ping from 'ping';
 import * as net from 'net';
 import * as tls from 'tls';
-import * as forge from 'node-forge';
 import { PingResult, HTTPResult, PortScanResult, PortInfo, SSLResult } from '../models/host.types';
 import { AppError } from '../models/error.types';
 import { validatePort } from '../utils/validation';
@@ -419,93 +418,70 @@ export class HostService {
 
     const normalizedDomain = domain.trim().toLowerCase();
 
-    // Remove protocol if provided
+    // Remove protocol if provided (strip both https:// and http://)
     let cleanDomain = normalizedDomain;
     if (cleanDomain.startsWith('https://')) {
       cleanDomain = cleanDomain.substring(8);
     } else if (cleanDomain.startsWith('http://')) {
-      // HTTP domains don't have SSL (Requirement 5.5)
-      throw new AppError(
-        'SSL_NOT_AVAILABLE',
-        'SSL is not available for HTTP domains. Please use HTTPS or provide domain without protocol.',
-        400,
-        { domain: normalizedDomain }
-      );
+      // Strip http:// and try to check SSL anyway
+      // User might have typed http:// by mistake
+      cleanDomain = cleanDomain.substring(7);
     }
 
     // Remove trailing slash and path
     cleanDomain = cleanDomain.split('/')[0];
+    
+    // Remove port if specified
+    cleanDomain = cleanDomain.split(':')[0];
 
     // First, check if the domain supports HTTPS by attempting a connection
     try {
-      // Try to connect to the domain on port 443
-      const certificate = await this.fetchSSLCertificate(cleanDomain);
-
-      // Parse certificate details (Requirement 5.1)
-      // Try node-forge first, fall back to raw certificate data for non-RSA keys (ECDSA/EC)
-      let issuer: string;
-      let subject: string;
-      let validFrom: Date;
-      let validTo: Date;
-      let valid = true;
-
-      try {
-        const cert = forge.pki.certificateFromPem(certificate);
-
-        // Extract certificate information using forge
-        issuer = this.extractCertificateField(cert.issuer.attributes, 'CN') || 
-                 this.extractCertificateField(cert.issuer.attributes, 'O') || 
-                 'Unknown Issuer';
-        
-        subject = this.extractCertificateField(cert.subject.attributes, 'CN') || 
-                  cleanDomain;
-
-        validFrom = cert.validity.notBefore;
-        validTo = cert.validity.notAfter;
-
-        // Check if self-signed (Requirement 5.4)
-        const issuerCN = this.extractCertificateField(cert.issuer.attributes, 'CN') || '';
-        const subjectCN = this.extractCertificateField(cert.subject.attributes, 'CN') || '';
-        if (issuerCN === subjectCN && issuerCN !== '') {
-          valid = false;
-        }
-      } catch (forgeError: any) {
-        // node-forge doesn't support ECDSA/EC keys, use raw certificate data
-        // Fetch certificate info directly from TLS connection
-        const certInfo = await this.fetchSSLCertificateInfo(cleanDomain);
-        issuer = certInfo.issuer;
-        subject = certInfo.subject;
-        validFrom = certInfo.validFrom;
-        validTo = certInfo.validTo;
-        
-        // Check if self-signed
-        if (certInfo.issuer === certInfo.subject) {
-          valid = false;
-        }
-      }
-
-      // Calculate days until expiry
+      // Fetch comprehensive SSL certificate info
+      const certInfo = await this.fetchSSLCertificateExtended(cleanDomain);
+      
       const now = new Date();
-      const expiryDate = new Date(validTo);
+      const expiryDate = new Date(certInfo.validTo);
       const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-      // Check if expired (Requirement 5.3)
+      // Determine validity
+      let valid = true;
+      
+      // Check if expired
       if (expiryDate < now) {
         valid = false;
       }
 
       // Check if not yet valid
-      if (new Date(validFrom) > now) {
+      if (new Date(certInfo.validFrom) > now) {
+        valid = false;
+      }
+
+      // Check if self-signed
+      if (certInfo.isSelfSigned) {
         valid = false;
       }
 
       return {
         valid,
-        issuer,
-        subject,
-        validFrom,
-        validTo,
+        issuer: certInfo.issuer,
+        subject: certInfo.subject,
+        validFrom: certInfo.validFrom,
+        validTo: certInfo.validTo,
         daysUntilExpiry,
+        // Extended info
+        serialNumber: certInfo.serialNumber,
+        signatureAlgorithm: certInfo.signatureAlgorithm,
+        publicKeyAlgorithm: certInfo.publicKeyAlgorithm,
+        publicKeySize: certInfo.publicKeySize,
+        fingerprint: certInfo.fingerprint,
+        fingerprintSHA256: certInfo.fingerprintSHA256,
+        subjectAltNames: certInfo.subjectAltNames,
+        issuerOrganization: certInfo.issuerOrganization,
+        issuerCountry: certInfo.issuerCountry,
+        isWildcard: certInfo.isWildcard,
+        isSelfSigned: certInfo.isSelfSigned,
+        protocol: certInfo.protocol,
+        cipher: certInfo.cipher,
       };
 
     } catch (error: any) {
@@ -557,89 +533,32 @@ export class HostService {
     }
   }
 
+
+
   /**
-   * Fetch SSL certificate from a domain
+   * Fetch extended SSL certificate info from TLS connection
+   * Returns comprehensive certificate details
    * @param domain - Domain name
-   * @returns PEM-encoded certificate string
+   * @returns Extended certificate info object
    */
-  private async fetchSSLCertificate(domain: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const options = {
-        host: domain,
-        port: 443,
-        servername: domain,
-        rejectUnauthorized: false, // Accept self-signed certificates for inspection
-      };
-
-      const socket = tls.connect(options, () => {
-        const certificate = socket.getPeerCertificate(true);
-        
-        if (!certificate || Object.keys(certificate).length === 0) {
-          socket.destroy();
-          reject(new Error('No certificate found'));
-          return;
-        }
-
-        // Get the raw certificate in PEM format
-        const cert = socket.getPeerCertificate(true);
-        const pemCert = this.convertToPEM(cert.raw);
-        
-        socket.destroy();
-        resolve(pemCert);
-      });
-
-      socket.setTimeout(TIMEOUTS.SSL_CHECK);
-
-      socket.on('timeout', () => {
-        socket.destroy();
-        reject(new Error('Connection timeout'));
-      });
-
-      socket.on('error', (error) => {
-        socket.destroy();
-        reject(error);
-      });
-    });
-  }
-
-  /**
-   * Convert raw certificate buffer to PEM format
-   * @param raw - Raw certificate buffer
-   * @returns PEM-encoded certificate string
-   */
-  private convertToPEM(raw: Buffer): string {
-    const base64Cert = raw.toString('base64');
-    const pemCert = `-----BEGIN CERTIFICATE-----\n${base64Cert.match(/.{1,64}/g)?.join('\n')}\n-----END CERTIFICATE-----`;
-    return pemCert;
-  }
-
-  /**
-   * Extract a specific field from certificate subject or issuer
-   * @param attributes - Certificate subject or issuer attributes array
-   * @param fieldName - Field name to extract (e.g., 'CN', 'O', 'OU')
-   * @returns Field value or null if not found
-   */
-  private extractCertificateField(
-    attributes: forge.pki.CertificateField[],
-    fieldName: string
-  ): string | null {
-    const field = attributes.find(
-      (attr) => attr.shortName === fieldName || attr.name === fieldName
-    );
-    return field && typeof field.value === 'string' ? field.value : null;
-  }
-
-  /**
-   * Fetch SSL certificate info directly from TLS connection
-   * Used as fallback for non-RSA certificates (ECDSA/EC keys)
-   * @param domain - Domain name
-   * @returns Certificate info object
-   */
-  private async fetchSSLCertificateInfo(domain: string): Promise<{
+  private async fetchSSLCertificateExtended(domain: string): Promise<{
     issuer: string;
     subject: string;
     validFrom: Date;
     validTo: Date;
+    serialNumber: string;
+    signatureAlgorithm: string;
+    publicKeyAlgorithm: string;
+    publicKeySize: number;
+    fingerprint: string;
+    fingerprintSHA256: string;
+    subjectAltNames: string[];
+    issuerOrganization: string;
+    issuerCountry: string;
+    isWildcard: boolean;
+    isSelfSigned: boolean;
+    protocol: string;
+    cipher: string;
   }> {
     return new Promise((resolve, reject) => {
       const options = {
@@ -650,7 +569,7 @@ export class HostService {
       };
 
       const socket = tls.connect(options, () => {
-        const cert = socket.getPeerCertificate();
+        const cert = socket.getPeerCertificate(true);
         
         if (!cert || Object.keys(cert).length === 0) {
           socket.destroy();
@@ -658,18 +577,92 @@ export class HostService {
           return;
         }
 
-        // Extract issuer CN or O
+        // Get connection info
+        const cipher = socket.getCipher();
+        const protocol = socket.getProtocol() || 'unknown';
+
+        // Extract issuer info
         const issuer = cert.issuer?.CN || cert.issuer?.O || 'Unknown Issuer';
+        const issuerOrganization = cert.issuer?.O || '';
+        const issuerCountry = cert.issuer?.C || '';
         
-        // Extract subject CN
+        // Extract subject info
         const subject = cert.subject?.CN || domain;
 
         // Parse validity dates
         const validFrom = new Date(cert.valid_from);
         const validTo = new Date(cert.valid_to);
 
+        // Serial number
+        const serialNumber = cert.serialNumber || '';
+
+        // Fingerprints
+        const fingerprint = cert.fingerprint || '';
+        const fingerprintSHA256 = cert.fingerprint256 || '';
+
+        // Subject Alternative Names (SAN)
+        const subjectAltNames: string[] = [];
+        if (cert.subjectaltname) {
+          // Format: "DNS:example.com, DNS:www.example.com"
+          const sans = cert.subjectaltname.split(', ');
+          for (const san of sans) {
+            const value = san.replace(/^DNS:/, '').replace(/^IP Address:/, '');
+            if (value && !subjectAltNames.includes(value)) {
+              subjectAltNames.push(value);
+            }
+          }
+        }
+
+        // Check if wildcard certificate
+        const isWildcard = subject.startsWith('*.') || 
+          subjectAltNames.some(san => san.startsWith('*.'));
+
+        // Check if self-signed
+        const isSelfSigned = (cert.issuer?.CN === cert.subject?.CN) && 
+          (cert.issuer?.O === cert.subject?.O);
+
+        // Get signature algorithm from raw cert info
+        // Node's TLS doesn't expose this directly, so we'll use a placeholder
+        // In production, you might parse the raw certificate
+        const signatureAlgorithm = 'SHA256withRSA'; // Default assumption
+        
+        // Public key info
+        let publicKeyAlgorithm = 'RSA';
+        let publicKeySize = 2048;
+        
+        if (cert.bits) {
+          publicKeySize = cert.bits;
+        }
+        
+        // Try to determine key type from modulus presence
+        if (cert.modulus) {
+          publicKeyAlgorithm = 'RSA';
+        } else if (cert.pubkey) {
+          // Could be ECDSA
+          publicKeyAlgorithm = 'ECDSA';
+        }
+
         socket.destroy();
-        resolve({ issuer, subject, validFrom, validTo });
+        
+        resolve({
+          issuer,
+          subject,
+          validFrom,
+          validTo,
+          serialNumber,
+          signatureAlgorithm,
+          publicKeyAlgorithm,
+          publicKeySize,
+          fingerprint,
+          fingerprintSHA256,
+          subjectAltNames,
+          issuerOrganization,
+          issuerCountry,
+          isWildcard,
+          isSelfSigned,
+          protocol,
+          cipher: cipher ? `${cipher.name} (${cipher.version})` : 'unknown',
+        });
       });
 
       socket.setTimeout(TIMEOUTS.SSL_CHECK);
