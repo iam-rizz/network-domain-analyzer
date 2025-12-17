@@ -37,41 +37,49 @@ export const DNS_PROBE_LOCATIONS: ProbeLocation[] = [
   { name: 'OpenDNS (USA)', server: '208.67.222.222', region: 'americas', country: 'USA' },
   { name: 'OpenDNS Secondary (USA)', server: '208.67.220.220', region: 'americas', country: 'USA' },
   { name: 'Quad9 (USA)', server: '9.9.9.9', region: 'americas', country: 'USA' },
+  { name: 'Quad9 Secondary (USA)', server: '149.112.112.112', region: 'americas', country: 'USA' },
   { name: 'Level3 (USA)', server: '4.2.2.1', region: 'americas', country: 'USA' },
+  { name: 'Level3 Secondary (USA)', server: '4.2.2.2', region: 'americas', country: 'USA' },
   { name: 'Comodo (USA)', server: '8.26.56.26', region: 'americas', country: 'USA' },
   { name: 'Verisign (USA)', server: '64.6.64.6', region: 'americas', country: 'USA' },
+  { name: 'Verisign Secondary (USA)', server: '64.6.65.6', region: 'americas', country: 'USA' },
   { name: 'CleanBrowsing (USA)', server: '185.228.168.9', region: 'americas', country: 'USA' },
+  { name: 'Neustar (USA)', server: '156.154.70.1', region: 'americas', country: 'USA' },
+  { name: 'Neustar Secondary (USA)', server: '156.154.71.1', region: 'americas', country: 'USA' },
   
   // === EUROPE ===
   { name: 'DNS.Watch (Germany)', server: '84.200.69.80', region: 'europe', country: 'Germany' },
   { name: 'DNS.Watch Secondary (Germany)', server: '84.200.70.40', region: 'europe', country: 'Germany' },
-  { name: 'Freenom (Netherlands)', server: '80.80.80.80', region: 'europe', country: 'Netherlands' },
-  { name: 'Freenom Secondary (Netherlands)', server: '80.80.81.81', region: 'europe', country: 'Netherlands' },
-  { name: 'UncensoredDNS (Denmark)', server: '91.239.100.100', region: 'europe', country: 'Denmark' },
   { name: 'AdGuard (Cyprus)', server: '94.140.14.14', region: 'europe', country: 'Cyprus' },
   { name: 'AdGuard Secondary (Cyprus)', server: '94.140.15.15', region: 'europe', country: 'Cyprus' },
-  { name: 'Mullvad (Sweden)', server: '194.242.2.2', region: 'europe', country: 'Sweden' },
+  { name: 'Cloudflare (Europe)', server: '1.1.1.1', region: 'europe', country: 'Europe' },
+  { name: 'Google (Europe)', server: '8.8.8.8', region: 'europe', country: 'Europe' },
+  { name: 'Quad9 (Europe)', server: '9.9.9.9', region: 'europe', country: 'Europe' },
+  { name: 'OpenDNS (Europe)', server: '208.67.222.222', region: 'europe', country: 'Europe' },
   
   // === ASIA ===
-  { name: 'Yandex (Russia)', server: '77.88.8.8', region: 'asia', country: 'Russia' },
-  { name: 'Yandex Secondary (Russia)', server: '77.88.8.1', region: 'asia', country: 'Russia' },
   { name: 'AliDNS (China)', server: '223.5.5.5', region: 'asia', country: 'China' },
   { name: 'AliDNS Secondary (China)', server: '223.6.6.6', region: 'asia', country: 'China' },
   { name: 'DNSPod (China)', server: '119.29.29.29', region: 'asia', country: 'China' },
   { name: '114DNS (China)', server: '114.114.114.114', region: 'asia', country: 'China' },
+  { name: '114DNS Secondary (China)', server: '114.114.115.115', region: 'asia', country: 'China' },
   { name: 'TWNIC (Taiwan)', server: '101.101.101.101', region: 'asia', country: 'Taiwan' },
-  { name: 'IIJ (Japan)', server: '210.130.0.1', region: 'asia', country: 'Japan' },
-  { name: 'KT (South Korea)', server: '168.126.63.1', region: 'asia', country: 'South Korea' },
-  { name: 'SingNet (Singapore)', server: '165.21.83.88', region: 'asia', country: 'Singapore' },
+  { name: 'TWNIC Secondary (Taiwan)', server: '101.102.103.104', region: 'asia', country: 'Taiwan' },
+  { name: 'Cloudflare (Asia)', server: '1.1.1.1', region: 'asia', country: 'Asia' },
+  { name: 'Google (Asia)', server: '8.8.8.8', region: 'asia', country: 'Asia' },
+  { name: 'Quad9 (Asia)', server: '9.9.9.9', region: 'asia', country: 'Asia' },
   
   // === OCEANIA ===
-  { name: 'Cloudflare APAC (Australia)', server: '1.1.1.1', region: 'oceania', country: 'Australia' },
-  { name: 'Telstra (Australia)', server: '139.130.4.5', region: 'oceania', country: 'Australia' },
+  { name: 'Cloudflare (Australia)', server: '1.1.1.1', region: 'oceania', country: 'Australia' },
+  { name: 'Google (Australia)', server: '8.8.8.8', region: 'oceania', country: 'Australia' },
+  { name: 'Quad9 (Australia)', server: '9.9.9.9', region: 'oceania', country: 'Australia' },
+  { name: 'OpenDNS (Australia)', server: '208.67.222.222', region: 'oceania', country: 'Australia' },
   
   // === GLOBAL (Anycast - multiple locations) ===
   { name: 'Cloudflare Anycast', server: '1.1.1.1', region: 'global' },
   { name: 'Google Anycast', server: '8.8.8.8', region: 'global' },
   { name: 'Quad9 Anycast', server: '9.9.9.9', region: 'global' },
+  { name: 'OpenDNS Anycast', server: '208.67.222.222', region: 'global' },
 ];
 
 /**
