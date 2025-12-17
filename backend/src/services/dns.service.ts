@@ -436,14 +436,58 @@ export class DNSService {
   }
 
   /**
+   * Get probe locations for propagation check based on options
+   * @param options - Configuration options
+   * @returns Array of probe locations to use
+   */
+  getProbeLocationsForCheck(options?: {
+    regions?: ProbeRegion[];
+    maxLocations?: number;
+    customServers?: Array<{ name: string; server: string }>;
+  }): ProbeLocation[] {
+    let locationsToProbe: ProbeLocation[];
+    
+    if (options?.customServers && options.customServers.length > 0) {
+      locationsToProbe = options.customServers.map(s => ({
+        name: s.name,
+        server: s.server,
+        region: 'global' as const,
+      }));
+    } else if (options?.regions && options.regions.length > 0) {
+      locationsToProbe = getProbeLocationsByRegion(options.regions);
+    } else {
+      locationsToProbe = getDefaultProbeLocations();
+    }
+    
+    const defaultMaxLocations = parseInt(process.env.DNS_PROBE_MAX_LOCATIONS || '20', 10);
+    const maxLocations = options?.maxLocations || defaultMaxLocations;
+    locationsToProbe = locationsToProbe.slice(0, maxLocations);
+    
+    // Ensure at least 5 probe locations
+    if (locationsToProbe.length < 5) {
+      const defaults = getProbeLocationsByRegion('all');
+      const existingServers = new Set(locationsToProbe.map(l => l.server));
+      for (const loc of defaults) {
+        if (!existingServers.has(loc.server)) {
+          locationsToProbe.push(loc);
+          if (locationsToProbe.length >= 5) break;
+        }
+      }
+    }
+    
+    return locationsToProbe;
+  }
+
+  /**
    * Query a specific DNS location with error resilience
+   * Made public for streaming propagation check
    * @param domain - Domain name
    * @param recordType - DNS record type
    * @param locationName - Name of the probe location
    * @param dnsServer - DNS server IP address
    * @returns LocationResult with status and records
    */
-  private async queryLocationWithResilience(
+  async queryLocationWithResilience(
     domain: string,
     recordType: DNSRecordType,
     locationName: string,

@@ -247,4 +247,230 @@ router.get(
   }
 );
 
+/**
+ * GET /api/dns/propagation/stream
+ * Stream DNS propagation check results using Server-Sent Events (SSE)
+ * 
+ * Query params:
+ * - domain: string (required) - Domain to check
+ * - recordType: string (required) - DNS record type (A, AAAA, MX, etc.)
+ * - regions: string (optional) - Comma-separated regions: americas,europe,asia,oceania,global,all
+ * - maxLocations: number (optional) - Maximum number of locations to check
+ */
+router.get(
+  '/propagation/stream',
+  dnsRateLimiter.middleware(),
+  async (req: Request, res: Response) => {
+    const { domain, recordType, regions, maxLocations } = req.query;
+
+    // Validate required fields
+    if (!domain || typeof domain !== 'string') {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Domain is required' },
+      });
+      return;
+    }
+
+    if (!recordType || typeof recordType !== 'string') {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'recordType is required' },
+      });
+      return;
+    }
+
+    // Validate recordType
+    const validTypes: DNSRecordType[] = ['A', 'AAAA', 'MX', 'TXT', 'CNAME', 'NS', 'SOA'];
+    if (!validTypes.includes(recordType as DNSRecordType)) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: `Invalid record type: ${recordType}` },
+      });
+      return;
+    }
+
+    // Parse regions
+    const validRegions: ProbeRegion[] = ['americas', 'europe', 'asia', 'oceania', 'global', 'all'];
+    let selectedRegions: ProbeRegion[] | undefined;
+    if (regions && typeof regions === 'string') {
+      selectedRegions = regions.split(',').map(r => r.trim().toLowerCase()) as ProbeRegion[];
+      for (const region of selectedRegions) {
+        if (!validRegions.includes(region)) {
+          res.status(400).json({
+            success: false,
+            error: { code: 'VALIDATION_ERROR', message: `Invalid region: ${region}` },
+          });
+          return;
+        }
+      }
+    }
+
+    // Parse maxLocations
+    let maxLocs: number | undefined;
+    if (maxLocations && typeof maxLocations === 'string') {
+      maxLocs = parseInt(maxLocations, 10);
+      if (isNaN(maxLocs) || maxLocs < 1 || maxLocs > 30) {
+        res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'maxLocations must be between 1 and 30' },
+        });
+        return;
+      }
+    }
+
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+    res.flushHeaders();
+
+    // Get probe locations
+    const locationsToProbe = dnsService.getProbeLocationsForCheck({
+      regions: selectedRegions,
+      maxLocations: maxLocs,
+    });
+
+    // Send initial event with all locations (pending state)
+    const initialLocations = locationsToProbe.map(loc => ({
+      location: loc.name,
+      server: loc.server,
+      region: loc.region,
+      country: loc.country,
+      status: 'pending' as const,
+    }));
+
+    res.write(`event: init\n`);
+    res.write(`data: ${JSON.stringify({ locations: initialLocations, total: locationsToProbe.length })}\n\n`);
+
+    // Track results for final summary
+    const results: any[] = [];
+    let completedCount = 0;
+
+    // Query each location and stream results
+    const queryPromises = locationsToProbe.map(async (location, index) => {
+      try {
+        const result = await dnsService.queryLocationWithResilience(
+          domain,
+          recordType as DNSRecordType,
+          location.name,
+          location.server
+        );
+
+        results.push(result);
+        completedCount++;
+
+        // Send result event
+        res.write(`event: result\n`);
+        res.write(`data: ${JSON.stringify({
+          index,
+          server: location.server,
+          region: location.region,
+          country: location.country,
+          location: result.location,
+          status: result.status,
+          records: result.records,
+          responseTime: result.responseTime,
+          progress: {
+            completed: completedCount,
+            total: locationsToProbe.length,
+          },
+        })}\n\n`);
+
+      } catch (error: any) {
+        completedCount++;
+        const errorResult = {
+          location: location.name,
+          status: 'unavailable' as const,
+          records: [] as any[],
+          responseTime: 0,
+        };
+        results.push(errorResult);
+
+        res.write(`event: result\n`);
+        res.write(`data: ${JSON.stringify({
+          index,
+          server: location.server,
+          region: location.region,
+          country: location.country,
+          location: location.name,
+          status: 'unavailable',
+          records: [],
+          responseTime: 0,
+          error: error.message,
+          progress: {
+            completed: completedCount,
+            total: locationsToProbe.length,
+          },
+        })}\n\n`);
+      }
+    });
+
+    // Wait for all queries to complete
+    await Promise.all(queryPromises);
+
+    // Calculate final summary
+    const successfulResults = results.filter(r => r.status === 'success' && r.records?.length > 0);
+    const failedResults = results.filter(r => r.status === 'failure' || r.status === 'unavailable');
+    
+    // Check if fully propagated
+    let fullyPropagated = false;
+    const inconsistencies: string[] = [];
+    
+    if (successfulResults.length >= 2) {
+      const referenceRecords = successfulResults[0].records;
+      fullyPropagated = successfulResults.every(result => {
+        const sorted1 = [...referenceRecords].sort((a: any, b: any) => a.value.localeCompare(b.value));
+        const sorted2 = [...result.records].sort((a: any, b: any) => a.value.localeCompare(b.value));
+        
+        if (sorted1.length !== sorted2.length) return false;
+        return sorted1.every((r: any, i: number) => r.value === sorted2[i].value);
+      });
+
+      if (!fullyPropagated) {
+        for (let i = 1; i < successfulResults.length; i++) {
+          const ref = successfulResults[0];
+          const curr = successfulResults[i];
+          const refValues = ref.records.map((r: any) => r.value).sort().join(',');
+          const currValues = curr.records.map((r: any) => r.value).sort().join(',');
+          if (refValues !== currValues) {
+            inconsistencies.push(`Records differ between ${ref.location} and ${curr.location}`);
+          }
+        }
+      }
+    }
+
+    // Send complete event with summary
+    res.write(`event: complete\n`);
+    res.write(`data: ${JSON.stringify({
+      fullyPropagated,
+      inconsistencies,
+      summary: {
+        total: results.length,
+        successful: successfulResults.length,
+        failed: failedResults.length,
+      },
+    })}\n\n`);
+
+    // Save to history
+    try {
+      historyService.saveAnalysis({
+        type: 'dns_propagation',
+        domain,
+        result: {
+          fullyPropagated,
+          locations: results,
+          inconsistencies,
+        },
+        status: 'success',
+      });
+    } catch {
+      // Don't fail if history save fails
+    }
+
+    res.end();
+  }
+);
+
 export default router;
