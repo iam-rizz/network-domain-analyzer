@@ -1,3 +1,7 @@
+[![Quality Gate Status](https://sonarqube.rizzcode.id/api/project_badges/measure?project=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f&metric=alert_status&token=sqb_8a0848ceeaa7c9f71c452b209382032dcdcbac97)](https://sonarqube.rizzcode.id/dashboard?id=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f)
+[![Maintainability Rating](https://sonarqube.rizzcode.id/api/project_badges/measure?project=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f&metric=software_quality_maintainability_rating&token=sqb_8a0848ceeaa7c9f71c452b209382032dcdcbac97)](https://sonarqube.rizzcode.id/dashboard?id=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f)
+[![Security Rating](https://sonarqube.rizzcode.id/api/project_badges/measure?project=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f&metric=software_quality_security_rating&token=sqb_8a0848ceeaa7c9f71c452b209382032dcdcbac97)](https://sonarqube.rizzcode.id/dashboard?id=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f)
+
 # Network & Domain Analyzer
 
 All-in-one platform for DNS checking, WHOIS lookup, host monitoring, and network analysis.
@@ -15,6 +19,17 @@ All-in-one platform for DNS checking, WHOIS lookup, host monitoring, and network
 - **Batch Analysis**: Process multiple domains simultaneously
 - **History Tracking**: Save and compare analysis results over time
 - **Export Functionality**: Export results in JSON or CSV format
+
+## Code Quality (SonarQube)
+
+[![Quality Gate Status](https://sonarqube.rizzcode.id/api/project_badges/measure?project=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f&metric=alert_status&token=sqb_8a0848ceeaa7c9f71c452b209382032dcdcbac97)](https://sonarqube.rizzcode.id/dashboard?id=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f)
+[![Lines of Code](https://sonarqube.rizzcode.id/api/project_badges/measure?project=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f&metric=ncloc&token=sqb_8a0848ceeaa7c9f71c452b209382032dcdcbac97)](https://sonarqube.rizzcode.id/dashboard?id=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f)
+
+[![Reliability Rating](https://sonarqube.rizzcode.id/api/project_badges/measure?project=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f&metric=software_quality_reliability_rating&token=sqb_8a0848ceeaa7c9f71c452b209382032dcdcbac97)](https://sonarqube.rizzcode.id/dashboard?id=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f)
+[![Maintainability Rating](https://sonarqube.rizzcode.id/api/project_badges/measure?project=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f&metric=software_quality_maintainability_rating&token=sqb_8a0848ceeaa7c9f71c452b209382032dcdcbac97)](https://sonarqube.rizzcode.id/dashboard?id=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f)
+
+[![Security Rating](https://sonarqube.rizzcode.id/api/project_badges/measure?project=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f&metric=software_quality_security_rating&token=sqb_8a0848ceeaa7c9f71c452b209382032dcdcbac97)](https://sonarqube.rizzcode.id/dashboard?id=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f)
+[![Security Issues](https://sonarqube.rizzcode.id/api/project_badges/measure?project=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f&metric=software_quality_security_issues&token=sqb_8a0848ceeaa7c9f71c452b209382032dcdcbac97)](https://sonarqube.rizzcode.id/dashboard?id=iam-rizz_network-domain-analyzer_87614f1a-2aad-4844-9f04-968d893ac75f)
 
 ## Tech Stack
 
